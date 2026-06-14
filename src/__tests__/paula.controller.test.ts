@@ -1,6 +1,8 @@
 // Integrante: Paula Ayala — Frontend / Controladores
 // Capa: CONTROLADOR — Códigos HTTP, formato JSON y mapeo de rutas
 
+export {};
+
 function mockRes() {
   const json = jest.fn();
   const status = jest.fn().mockReturnValue({ json });

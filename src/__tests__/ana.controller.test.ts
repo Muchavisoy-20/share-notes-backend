@@ -1,6 +1,8 @@
 // Integrante: Ana Solarte — Documentación y Pruebas
 // Capa: CONTROLADOR + SERVICIO — Foro, Administración y Sistema de Roles
 
+export {};
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 function mockRes() {
   const json = jest.fn();
