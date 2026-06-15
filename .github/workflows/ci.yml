@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ShareNotes — Pipeline de Integración Continua (CI)
+# Se ejecuta automáticamente en cada push y pull request al branch main.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI - ShareNotes Backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Compilación TypeScript + Pruebas Unitarias del Backend
+  # ─────────────────────────────────────────────────────────────────────────
+  backend-tests:
+    name: 🧪 Backend — Build & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: 📦 Instalar dependencias del backend
+        working-directory: backend
+        run: npm ci
+
+      - name: 🔨 Compilar TypeScript (verificar tipos)
+        working-directory: backend
+        run: npx tsc --noEmit
+
+      - name: 🧪 Ejecutar pruebas unitarias
+        working-directory: backend
+        run: npm test
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Verificación de los Microservicios
+  # ─────────────────────────────────────────────────────────────────────────
+  microservices-check:
+    name: 🔌 Microservicios — Verificación
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [ms-email, ms-pdf]
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - name: 📦 Instalar dependencias de ${{ matrix.service }}
+        working-directory: ${{ matrix.service }}
+        run: npm ci
+
+      - name: ✅ Verificar que ${{ matrix.service }} inicia correctamente
+        working-directory: ${{ matrix.service }}
+        run: |
+          timeout 5 node src/index.js &
+          sleep 3
+          curl -f http://localhost:$([ "${{ matrix.service }}" = "ms-pdf" ] && echo 4001 || echo 4002)/health || exit 1
+          echo "✅ ${{ matrix.service }} health check passed"

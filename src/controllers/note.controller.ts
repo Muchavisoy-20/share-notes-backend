@@ -1,6 +1,7 @@
 // src/controllers/note.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { NoteService } from '../services/note.service';
+import { checkMicroservicesHealth } from '../utils/microservicesClient';
 
 const service = new NoteService();
 
@@ -22,6 +23,16 @@ export const uploadNote = async (req: Request, res: Response, next: NextFunction
       uploaderId: req.user!.userId,
       file: req.file,
     });
+
+    // Disparar notificación por email de forma asíncrona (fire-and-forget).
+    // No bloqueamos la respuesta al usuario.
+    service.notifyUpload({
+      uploaderName: req.user!.email,
+      noteTitle: title,
+      subjectName: `Materia ID: ${subjectId}`,
+      notifyTo: req.user!.email,  // Notifica al propio uploader como confirmación
+    });
+
     res.status(201).json(result);
   } catch (err) { next(err); }
 };
@@ -64,5 +75,35 @@ export const listSubjects = async (_req: Request, res: Response, next: NextFunct
   try {
     const subjects = await service.getSubjects();
     res.json(subjects);
+  } catch (err) { next(err); }
+};
+
+// ──────────────────────────────────────────────────
+// Nuevo: Generar reporte PDF vía Microservicio MS-PDF
+// ──────────────────────────────────────────────────
+export const generateReport = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const pdfBuffer = await service.requestPdfReport(req.user!.userId);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="reporte-apuntes.pdf"');
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) { next(err); }
+};
+
+// ──────────────────────────────────────────────────
+// Nuevo: Health check de microservicios
+// ──────────────────────────────────────────────────
+export const microservicesStatus = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = await checkMicroservicesHealth();
+    res.json({
+      message: 'Estado de los microservicios',
+      services: {
+        'ms-pdf': status.msPdf ? '🟢 Activo' : '🔴 Inactivo',
+        'ms-email': status.msEmail ? '🟢 Activo' : '🔴 Inactivo',
+      },
+    });
   } catch (err) { next(err); }
 };

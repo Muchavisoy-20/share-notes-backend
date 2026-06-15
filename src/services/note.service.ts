@@ -4,6 +4,7 @@ import { AppError } from '../middlewares/error.middleware';
 import { RowDataPacket } from 'mysql2';
 import fs from 'fs';
 import path from 'path';
+import { sendEmailNotification, generatePdfReport } from '../utils/microservicesClient';
 
 interface NoteRow extends RowDataPacket {
   id: number;
@@ -55,6 +56,27 @@ export class NoteService {
     );
 
     return { message: 'Apunte subido correctamente' };
+  }
+
+  /**
+   * Dispara una notificación por email al subir un apunte.
+   * Se ejecuta de forma asíncrona (fire-and-forget) para no bloquear la respuesta.
+   */
+  async notifyUpload(data: {
+    uploaderName: string;
+    noteTitle: string;
+    subjectName: string;
+    notifyTo: string;
+  }) {
+    // Llamar al microservicio de email sin awaitar para no bloquear
+    sendEmailNotification({
+      to: data.notifyTo,
+      uploaderName: data.uploaderName,
+      noteTitle: data.noteTitle,
+      subjectName: data.subjectName,
+    }).catch((err) => {
+      console.error('[NoteService] Error al notificar por email (no bloqueante):', err);
+    });
   }
 
   async list(filters: { subjectId?: number; semester?: number; careerId?: number; search?: string }) {
@@ -126,5 +148,53 @@ export class NoteService {
        ORDER BY s.semester, s.name`
     );
     return rows;
+  }
+
+  /**
+   * Obtiene los apuntes de un usuario en formato adecuado para el reporte PDF.
+   */
+  async getNotesForReport(userId: number) {
+    // Obtener nombre del usuario
+    const [userRows] = await pool.query<RowDataPacket[]>(
+      'SELECT name, email FROM users WHERE id = ?',
+      [userId]
+    );
+    const user = userRows[0];
+    if (!user) throw new AppError(404, 'Usuario no encontrado');
+
+    // Obtener apuntes del usuario
+    const [noteRows] = await pool.query<NoteRow[]>(
+      `SELECT n.id, n.title, n.created_at, s.name AS subject_name
+       FROM notes n
+       JOIN subjects s ON n.subject_id = s.id
+       WHERE n.uploader_id = ? AND n.is_active = TRUE
+       ORDER BY n.created_at DESC`,
+      [userId]
+    );
+
+    return {
+      username: user.name,
+      email: user.email,
+      notes: noteRows.map((n) => ({
+        title: n.title,
+        subject: n.subject_name,
+        createdAt: n.created_at,
+      })),
+    };
+  }
+
+  /**
+   * Orquesta la generación de un reporte PDF a través del microservicio MS-PDF.
+   * Retorna el Buffer del PDF o lanza un error si el servicio no está disponible.
+   */
+  async requestPdfReport(userId: number): Promise<Buffer> {
+    const reportData = await this.getNotesForReport(userId);
+    const pdfBuffer = await generatePdfReport(reportData);
+
+    if (!pdfBuffer) {
+      throw new AppError(503, 'El servicio de generación de PDFs no está disponible en este momento. Intenta más tarde.');
+    }
+
+    return pdfBuffer;
   }
 }
