@@ -124,3 +124,5 @@ describe("ANA — Capa Controlador + Servicio: Foro, Admin y Roles", () => {
     expect(hasPermission("student", "qr:generate")).toBe(false);
   });
 });
+
+export {};

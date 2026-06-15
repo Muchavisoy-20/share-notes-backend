@@ -102,3 +102,5 @@ describe("PAULA — Capa Controlador: Códigos HTTP y respuestas JSON", () => {
     expect(respuesta[0]).toHaveProperty("title");
   });
 });
+
+export {};
