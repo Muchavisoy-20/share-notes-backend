@@ -1,27 +1,16 @@
 # Dependencias
 node_modules/
 
-# Build
-dist/
-
-# Variables de entorno (NUNCA subir al repo)
+# Entornos (Variables sensibles)
 .env
-
-# Archivos subidos por usuarios
-uploads/
+.env.*
 
 # Logs
 *.log
 npm-debug.log*
 
-# Sistema operativo
+# SO e IDEs
 .DS_Store
 Thumbs.db
-
-# IDE
 .vscode/
 .idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
