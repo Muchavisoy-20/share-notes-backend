@@ -17,12 +17,12 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       return;
     }
     const user = await service.register(name, email, password);
-    
+
     // Enviar email de bienvenida de forma asíncrona (no bloquear)
     notificationClient.sendWelcome(email, name).catch(err => {
       console.error('Failed to send welcome notification:', err);
     });
-    
+
     res.status(201).json({ message: 'Registro exitoso', user });
   } catch (err) { next(err); }
 };
